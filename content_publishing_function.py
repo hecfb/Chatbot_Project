@@ -1,30 +1,38 @@
 import boto3
 import logging
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Setup logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Initialize AWS S3 client
-s3 = boto3.client('s3')
+s3 = boto3.client("s3")
 
 
-def content_publishing(event, context):
+def publish_content(source_key, destination_key, bucket):
     try:
-        # Copy filtered content to the 'published' directory
         s3.copy_object(
-            Bucket='chatgpt-test-bucket',
-            CopySource='filtered-content.txt',
-            Key='published/filtered-content.txt'
+            Bucket=bucket,
+            CopySource=f"{bucket}/{source_key}",
+            Key=destination_key
         )
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 error: {e}")
+        raise
+
+
+def lambda_handler(event, context):
+    try:
+        publish_content("filtered-content.txt",
+                        "published/filtered-content.txt", "chatgpt-test-bucket")
     except Exception as e:
-        logger.error(f"Error in content_publishing: {e}")
         return {
-            'statusCode': 500,
-            'error': str(e)
+            "statusCode": 500,
+            "error": str(e)
         }
 
     return {
-        'statusCode': 200,
-        'message': 'Content published successfully'
+        "statusCode": 200,
+        "message": "Content published successfully"
     }
